@@ -1,0 +1,2 @@
+upstream	https://github.com/stackforge/nova-docker.git (fetch)
+upstream	https://github.com/stackforge/nova-docker.git (push)
