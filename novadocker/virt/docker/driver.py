@@ -397,7 +397,8 @@ class DockerDriver(driver.ComputeDriver):
     def _start_container(self, container_id, instance, network_info=None):
         binds = self._get_key_binds(container_id, instance)
         dns = self._extract_dns_entries(network_info)
-        self.docker.start(container_id, binds=binds, dns=dns)
+        links = self._extract_links(instance)
+        self.docker.start(container_id, binds=binds, dns=dns, links=links)
 
         if not network_info:
             return
@@ -412,6 +413,22 @@ class DockerDriver(driver.ComputeDriver):
             self.docker.remove_container(container_id, force=True)
             raise exception.InstanceDeployFailure(msg.format(e),
                                                   instance_id=instance['name'])
+
+    def _extract_links(self, instance):
+        links = None
+        if 'metadata' in instance:
+            metadata = nova_utils.instance_meta(instance)
+            if metadata.get('links'):
+               links = metadata['links']
+
+        if not links and instance['user_data']:
+            #Workaround until we can set metadata in Horizon
+            user_data = instance['user_data'].decode('base64')
+            user_data = user_data.split('links=')
+            if len(user_data) > 1:
+                links = user_data[1]
+
+        return dict(item.split(":") for item in links.split(";")) if links else None
 
     def spawn(self, context, instance, image_meta, injected_files,
               admin_password, network_info=None, block_device_info=None,
