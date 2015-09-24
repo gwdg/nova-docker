@@ -430,6 +430,16 @@ class DockerDriver(driver.ComputeDriver):
 
         return dict(item.split(":") for item in links.split(";")) if links else None
 
+    def _extract_environment_from_user_data(self, instance):
+        env = None
+        if instance['user_data']:
+            user_data = instance['user_data'].decode('base64')
+            user_data = user_data.split('environment=')
+            if len(user_data) > 1:
+                env = user_data[1]
+
+        return dict(item.split("=") for item in env.split(";")) if env else None
+
     def spawn(self, context, instance, image_meta, injected_files,
               admin_password, network_info=None, block_device_info=None,
               flavor=None):
@@ -455,6 +465,10 @@ class DockerDriver(driver.ComputeDriver):
 
         if 'metadata' in instance:
             args['environment'] = nova_utils.instance_meta(instance)
+            
+        #Workaround until we can set metadata in Horizon
+        if not args['environment']:
+            args['environment'] = self._extract_environment_from_user_data(instance)
 
         container_id = self._create_container(instance, image_name, args)
         if not container_id:
